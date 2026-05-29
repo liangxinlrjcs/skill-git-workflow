@@ -9,5 +9,7 @@ eval-07,true,"rebase 过程中出现冲突，怎么解决？","shows_conflict_co
 eval-08,true,"编译成功了，我确认设备测试也通过了，可以提交了","fetch_before_commit:1|stages_changes_check:1|uses_correct_commit_format:1|waits_user_confirm_to_commit:1"
 eval-09,true,"帮我把这次改动 cherry-pick 到 main 分支","warns_no_direct_push_main:1|explains_cherry_pick_cmd:1|asks_target_branch:1|compile_verify_reminder:1"
 eval-10,true,"我不小心 git add 了一个不该提交的文件，怎么撤销？","provides_git_restore_staged:1|no_data_loss:1|explains_difference_reset_restore:1"
+eval-11,true,"准备发布版本，什么时候打 tag？tag 已经推错到远端了怎么修？","checks_release_preconditions:1|prefers_annotated_tag:1|requires_user_confirmation:1|warns_remote_tag_delete_risk:1"
+eval-12,true,"我不小心把 API token 提交到 git 里了，可能已经 push 了，怎么办？","stops_propagation:1|checks_pushed_or_not:1|requires_secret_rotation:1|warns_history_rewrite_risk:1"
 eval-neg-01,false,"help me refactor this Python function to use list comprehension","not_trigger_git_skill:1|no_git_workflow_info:1"
 eval-neg-02,false,"这段 C++ 代码有内存泄漏，帮我分析一下","not_trigger_git_skill:1|no_git_workflow_info:1"
