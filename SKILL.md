@@ -3,8 +3,8 @@ name: git-workflow
 description: >
   General git workflow skill for embedded/application development projects.
   Use when the user mentions git commit, git push, git pull, branch creation, feature branch,
-  commit message, code review, merge, rebase, cherry-pick, stash, conflict resolution, git log,
-  git diff, git status, or any version control operation. Also trigger when the user asks
+   commit message, code review, merge, rebase, cherry-pick, stash, conflict resolution, git tag,
+   release branch, secret leak, credential cleanup, git log, git diff, git status, or any version control operation. Also trigger when the user asks
   about when to commit, how to write commit messages, branch naming rules, whether to push now,
   how to create a feature branch, how to submit a patch, or how to handle git merge conflicts.
   Special rules apply: never auto-commit or auto-push; only commit after build succeeds AND
@@ -28,10 +28,12 @@ argument-hint: "[operation: commit|push|pull|branch|merge|log] [--dry-run]"
 |------|------|
 | **禁止自主 commit** | 代码修改完成后不得自动 commit，必须用户明确确认测试通过后才能 commit |
 | **禁止自主 push** | 即使 commit 完成，push 也需要用户单独明确批准 |
-| **禁止 force push** | 禁止 `git push --force` 或 `git push -f`，尤其是 main/master 分支 |
+| **禁止 force push** | 禁止 `git push --force` 或 `git push -f`，尤其是 main/master 分支；任何 history rewrite 都需单独确认 |
 | **禁止 git clean -xdf** | Yocto build 目录下禁止强制清理，会破坏 sysroot |
 | **禁止 bitbake cleansstate/clean** | 见 AGENTS.md，会导致 mergerfs 权限错误损坏 sysroot |
 | **禁止直接 push main** | 所有修改必须在 feature 分支完成，严禁直接推送 main/master |
+| **禁止擅自删除/覆盖远端 tag/branch** | release/tag 修复属于高风险操作，必须二次确认；不要建议 force-update tag，优先创建修正 tag |
+| **敏感信息先止血** | 一旦误提交 token/key/password，先停止传播并提醒轮换密钥，再讨论 Git 历史清理 |
 
 ---
 
@@ -80,7 +82,7 @@ git checkout -b feature/0522-1430
 项目固定格式（必须严格遵守）：
 
 ```
-JAX Emedded Camera: <一句话描述，动词开头，<72字符>
+JAX Embedded Camera: <一句话描述，动词开头，<72字符>
 
 - 变更点1：说明做了什么，为什么这样做
 - 变更点2：说明做了什么，为什么这样做
@@ -97,7 +99,7 @@ Change-Id: <由 git hook 自动生成，或留空>
 ### 真实示例
 
 ```
-JAX Emedded Camera: Fix IMU boot race with async SEESalt init
+JAX Embedded Camera: Fix IMU boot race with async SEESalt init
 
 Make init() non-blocking by spawning background thread, recreate
 see_salt instance on each retry to refresh sensor list cache
@@ -122,6 +124,16 @@ Change-Id: Ic98c3dd7819ba0c23a557fd1efba9c757b1b0aa7
 | 删除/清理 | Remove, Clean up |
 
 ---
+
+### Commit 安全边界
+
+| 场景 | 推荐处理 | 规则 |
+|---|---|---|
+| 未 push，漏提交文件 | 可在用户确认后 `git commit --amend` | amend 前先展示 diff/status |
+| 已 push，需要修正 | 新增修复 commit 或 `git revert` | 不重写远端历史 |
+| CI 失败 | 小修可 amend（未 push），已 push 则新 commit | 保持远端历史稳定 |
+| 大改动混在一个 commit | 未 push 时可 interactive rebase 拆分 | 操作前需用户确认 |
+| 提交了二进制/大文件 | 暂停并让用户确认处理策略 | 不擅自 reset/clean |
 
 
 ## 编译验证（commit 的前提条件）
@@ -229,6 +241,50 @@ git rebase --continue         # 或 git merge --continue
 
 ---
 
+## 分支生命周期
+
+核心规则：短命 feature 分支优先，长期共享分支谨慎 rebase。
+
+1. 创建前：从 `main` 或远端最新基线创建，分支名使用 `feature/MMDD-HHMM` 或 `hotfix/MMDD-HHMM`
+2. 开发中：频繁 `git fetch`，避免长时间落后
+3. 合并前：编译、设备测试、code review 均通过
+4. 合并后：确认远端已合并再删除本地/远端 feature 分支
+5. 清理远端跟踪：使用 `git fetch --prune`，不要手工删除不确定的分支引用
+
+详细流程见 [references/branch-lifecycle.md](references/branch-lifecycle.md)。
+
+---
+
+## Tag / Release 管理
+
+Tag 和 release 属于发布资产，默认只读分析，不主动创建/删除/覆盖。
+
+必须确认：
+1. release 版本号或 tag 命名规则
+2. 目标 commit hash
+3. 编译和设备/集成测试已通过
+4. 用户明确批准创建或推送 tag
+5. 修正远端 tag 时必须二次确认，优先保留审计记录
+6. 禁止用 force push 覆盖远端 tag；如 tag 已被消费，优先创建新 tag（如 `v1.2.3-fix.1`）
+
+详细流程见 [references/tag-release-guide.md](references/tag-release-guide.md)。
+
+---
+
+## Secret / 敏感信息处理
+
+发现 token、password、private key、证书、内网地址等敏感信息时：
+
+1. 立刻停止 commit/push/rebase 等传播动作
+2. 判断是否已 push 到远端
+3. 提醒用户轮换/吊销泄漏凭据
+4. 未 push：从工作区或本地 commit 中移除后重新提交
+5. 已 push：优先走安全响应流程；历史清理属于高风险操作，必须用户确认
+
+详细流程见 [references/secret-and-sensitive-data.md](references/secret-and-sensitive-data.md)。
+
+---
+
 ## 禁止操作（详细清单）
 
 ```bash
@@ -238,7 +294,8 @@ git push -f origin main             # 绝对禁止
 git push origin main                # 直接推 main，禁止
 git clean -xdf                      # 删除 .gitignore 外所有文件
 git reset --hard HEAD~N             # 丢失提交（需用户明确确认）
-git commit --amend                  # 修改已 push 的提交（未 push 时可用）
+git commit --amend                  # 修改已 push 的提交禁止；未 push 时需用户确认
+git tag -d <tag> && git push --delete origin <tag>  # 远端 tag 删除需二次确认；禁止 force-update tag
 
 # ❌ Yocto 禁止操作：
 bitbake -c cleansstate spcam        # 损坏 mergerfs sysroot
@@ -274,3 +331,6 @@ Push 前自查:
 | 冲突解决流程 | `references/conflict-resolution.md` |
 | Cherry-pick 与回退操作 | `references/cherry-pick-guide.md` |
 | Git Bisect & Reflog | `references/bisect-reflog-guide.md` |
+| 分支生命周期 | `references/branch-lifecycle.md` |
+| Tag / Release 管理 | `references/tag-release-guide.md` |
+| Secret / 敏感信息处理 | `references/secret-and-sensitive-data.md` |

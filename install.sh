@@ -1,7 +1,9 @@
 #!/bin/bash
 # Git Workflow Skill 安装脚本
 # 用法: bash install.sh [target]
-# target: cursor (默认) | claude-code | toder | all
+# target: cursor (默认) | claude-code | toder | codex | all
+
+set -e
 
 TARGET=${1:-cursor}
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -13,9 +15,9 @@ install_symlink() {
         echo "[OK] Already linked: $dest -> $SCRIPT_DIR"
         return
     fi
-    if [ -e "$dest" ]; then
-        echo "[WARN] $dest 已存在（不是软链接），删除后重新创建软链接..."
-        rm -rf "$dest"
+    if [ -e "$dest" ] || [ -L "$dest" ]; then
+        echo "[ERROR] $dest 已存在且未指向当前 Skill，保留原内容，安装终止。" >&2
+        return 1
     fi
     mkdir -p "$(dirname "$dest")"
     ln -s "$SCRIPT_DIR" "$dest"
@@ -32,13 +34,17 @@ case "$TARGET" in
     toder)
         install_symlink "$HOME/.toder/skills/git-workflow"
         ;;
+    codex)
+        install_symlink "${CODEX_HOME:-$HOME/.codex}/skills/git-workflow"
+        ;;
     all)
+        install_symlink "${CODEX_HOME:-$HOME/.codex}/skills/git-workflow"
         install_symlink "$HOME/.cursor/skills/git-workflow"
         install_symlink "$HOME/.claude/skills/git-workflow"
         install_symlink "$HOME/.toder/skills/git-workflow"
         ;;
     *)
-        echo "Usage: bash install.sh [cursor|claude-code|toder|all]"
+        echo "Usage: bash install.sh [cursor|claude-code|toder|codex|all]"
         exit 1
         ;;
 esac

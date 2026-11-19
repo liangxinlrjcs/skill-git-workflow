@@ -11,6 +11,8 @@
 | push 被拒绝（rejected） | `git fetch origin → git rebase origin/<branch> → push` |
 | 冲突解决 | 展示给用户看 → 协同决策 → 新增功能全保留 |
 | 撤销误 stage 的文件 | `git restore --staged <file>` |
+| tag/release | 先确认版本、目标 commit、测试结果 → 用户批准后再操作 |
+| 误提交敏感信息 | 停止传播 → 判断是否已 push → 轮换密钥 → 再清理历史 |
 
 ## 核心规则（永远不违反）
 
@@ -27,12 +29,14 @@
 ❌ 禁止直接 push main
 ❌ 禁止 git clean -xdf（Yocto 项目）
 ❌ 禁止 bitbake cleansstate
+❌ 禁止擅自删除/覆盖远端 tag
+❌ 禁止擅自清理 Git 历史或泄漏凭据
 ```
 
 ## commit message 模板
 
 ```
-JAX Emedded Camera: <动词开头的一句话描述>
+JAX Embedded Camera: <动词开头的一句话描述>
 
 - 变更点1
 - 变更点2
